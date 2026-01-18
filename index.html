@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文化祭チェックポイント</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; }
+        .hidden { display: none; }
+        #reader { width: 100%; max-width: 500px; margin: auto; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        input { padding: 10px; width: 80%; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>文化祭スタンプラリー</h1>
+
+    <div id="step-point">
+        <p>現在の地点を選択してください</p>
+        <button onclick="setPoint('A')">地点 A</button>
+        <button onclick="setPoint('B')">地点 B</button>
+        <button onclick="setPoint('C')">地点 C</button>
+    </div>
+
+    <div id="step-scan" class="hidden">
+        <p>地点 <span id="display-point"></span>: QRコードをスキャンしてください</p>
+        <div id="reader"></div>
+        <button onclick="location.reload()">戻る</button>
+    </div>
+
+    <div id="step-input" class="hidden">
+        <p>ID: <span id="display-id"></span></p>
+        <input type="text" id="user-input" placeholder="情報を入力してください">
+        <br>
+        <button id="send-btn" onclick="sendData()">送信する</button>
+    </div>
+
+    <div id="step-result" class="hidden">
+        <h2>スキャン結果</h2>
+        <p>地点Aの情報: <b id="res-a">-</b></p>
+        <p>地点Bの情報: <b id="res-b">-</b></p>
+        <button onclick="location.reload()">最初に戻る</button>
+    </div>
+
+    <script>
+        const GAS_URL = "https://script.google.com/macros/s/AKfycbyNNOYyVHLl21XxQDcodJH6JndSgYAiveRDiHlkhGFQLgw7kbh9HhmpagAfXToGZ0H5/exec"; 
+        let currentPoint = "";
+        let currentId = "";
+        const html5QrCode = new Html5Qrcode("reader");
+
+        function setPoint(p) {
+            currentPoint = p;
+            document.getElementById("step-point").classList.add("hidden");
+            document.getElementById("step-scan").classList.remove("hidden");
+            document.getElementById("display-point").innerText = p;
+            startScanner();
+        }
+
+        function startScanner() {
+            html5QrCode.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    currentId = decodedText;
+                    html5QrCode.stop();
+                    document.getElementById("step-scan").classList.add("hidden");
+                    handleScanResult();
+                }
+            );
+        }
+
+        function handleScanResult() {
+            if (currentPoint === 'C') {
+                // 地点C：データを取得
+                fetch(`${GAS_URL}?id=${currentId}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        document.getElementById("step-result").classList.remove("hidden");
+                        document.getElementById("res-a").innerText = data.data_a || "未入力";
+                        document.getElementById("res-b").innerText = data.data_b || "未入力";
+                    });
+            } else {
+                // 地点A or B：入力画面へ
+                document.getElementById("step-input").classList.remove("hidden");
+                document.getElementById("display-id").innerText = currentId;
+            }
+        }
+
+        function sendData() {
+            const content = document.getElementById("user-input").value;
+            const btn = document.getElementById("send-btn");
+            btn.disabled = true;
+            btn.innerText = "送信中...";
+
+            fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify({ id: currentId, point: currentPoint, content: content })
+            })
+            .then(() => {
+                alert("送信完了！");
+                location.reload();
+            });
+        }
+    </script>
+</body>
+</html>
